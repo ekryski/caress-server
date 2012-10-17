@@ -1,0 +1,76 @@
+<!doctype html>
+
+<!-- Caress basic gesture example using HammerJS -->
+<!-- Copyright (c) 2012 Eric Kryski -->
+<!-- MIT Licensed -->
+<!-- This code adapted from http://eightmedia.github.com/hammer.js/demo/ -->
+
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+    <title>Caress - Hammer Basic</title>
+    <style>
+
+        body {
+            background: #003;
+            color: #fff;
+        }
+        #container {
+            height: 300px;
+            background-color: #ac0;
+            margin-bottom: 20px;
+            float: left;
+            width: 100%;
+        }
+
+        #debug {
+            font: 12px 'Courier New';
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="container"></div>
+
+<div id="debug"></div>
+<input type="button" onclick="$('#container').data('hammer').destroy();" value="Destroy">
+
+<!-- The Scripts -->
+<script src="../assets/js/jquery-1.8.1.min.js"></script>
+<script src="../assets/js/underscore-1.3.3.min.js"></script>
+<script src="../assets/js/socket.io-0.9.10.min.js"></script>
+<script src="../assets/js/lib/hammer.js"></script>
+<script src="../assets/js/lib/jquery.hammer.js"></script>
+<script src="../assets/js/caress-client.js"></script>
+<script>
+    $(function() {
+        window.client = new Caress.Client({
+            host: 'localhost',
+            port: 5000
+        });
+        client.connect();
+    });
+
+    window.onerror = function(ev) {
+        //alert(ev);
+    };
+
+    var debug_el = $("#debug");
+    function log(str) {
+        debug_el.prepend(str +"<br>");
+    }
+
+    $("#container").hammer({
+            prevent_default: false,
+            drag_vertical: false
+        })
+        .bind("hold tap doubletap transformstart transform transformend dragstart drag dragend release swipe", function(ev) {
+            log(ev.type);
+        });
+
+</script>
+</body>
+</html>
