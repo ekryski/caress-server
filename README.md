@@ -14,7 +14,7 @@
 **To run an example:**
 
 * start the example server
-    * node examples/server.js
+    * `node examples/server.js`
 * open up one of the html files
 * Grab a [TUIO Tracker](http://tuio.org/?software) and start playing around
 

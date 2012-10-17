@@ -21,15 +21,16 @@
     "jspack": "0.0.1"
   },
   "devDependencies": {
-    "express": "2.5.9",
     "mocha": "*",
-    "chai": "*"
+    "chai": "*",
+    "sinon": "*"
   },
   "keywords": [
     "tuio",
     "osc",
     "touch",
-    "multitouch"
+    "multitouch",
+    "eventemitter"
   ],
   "main": "index.js"
 }
