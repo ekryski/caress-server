@@ -16,7 +16,6 @@ function onSocketConnect(socket) {
     console.log("Socket.io Client Connected");
 
     caress.on('tuio', function(msg){
-      console.log(msg);
       socket.emit('tuio', msg);
     });
 
