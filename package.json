@@ -26,6 +26,10 @@
     "chai": "*",
     "sinon": "*"
   },
+  "scripts": {
+    "test": "mocha test",
+    "start": "node examples/server.js"
+  },
   "keywords": [
     "tuio",
     "osc",
