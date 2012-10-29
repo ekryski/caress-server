@@ -19,4 +19,16 @@ describe("Caress Server", function () {
     expect(caress.debug).to.be.false;
     expect(caress.json).to.be.true;
   });
+
+  it("Should emit a 'tuio' event when UDP 'message' is received", function () {
+  });
+
+  it("Should emit an 'error' event when UDP 'error' is received", function () {
+  });
+
+  it("Should emit a 'tuio' event when TCP 'data' is received", function () {
+  });
+
+  it("Should emit an 'error' event when TCP 'error' is received", function () {
+  });
 });
