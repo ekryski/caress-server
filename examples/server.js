@@ -9,6 +9,7 @@ var socketio = require('socket.io'),
     CaressServer = require("../lib/caress-server.js");
 
 var caress = new CaressServer('0.0.0.0', 3333, {json: true});
+caress.listen();
 
 var port = 5000;
 

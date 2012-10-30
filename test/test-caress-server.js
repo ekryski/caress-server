@@ -6,28 +6,46 @@ var net = require('net');
 describe("Caress Server", function () {
   describe("Initialization", function () {
     it("Should create a caress server with defaults when no parameters are passed in", function () {
-      var caress = new Caress();
+      var caress = new Caress().listen();
 
       expect(caress.host).to.equal('127.0.0.1');
       expect(caress.port).to.equal(3333);
       expect(caress.debug).to.be.false;
       expect(caress.json).to.be.true;
+
+      caress.stop();
     });
 
     it("Should create a caress server with passed in parameters", function () {
-      var caress = new Caress('0.0.0.0', 3334, {debug: true, json: true});
+      var caress = new Caress('0.0.0.0', 3334, {debug: true, json: true}).listen();
 
       expect(caress.host).to.equal('0.0.0.0');
       expect(caress.port).to.equal(3334);
       expect(caress.debug).to.be.true;
       expect(caress.json).to.be.true;
+
+      caress.stop();
     });
   });
 
   describe("Event emitting", function () {
+    var caress;
+
+    beforeEach(function(done){
+      console.log('startin caress');
+      caress = new Caress().listen();
+      done();
+    });
+
+    afterEach(function(done){
+      console.log('stopin caress');
+      caress.stop();
+      done();
+    });
+
     it("Should emit a 'tuio' event when UDP 'message' is received", function (done) {
       // SETUP
-      var caress = new Caress('0.0.0.0', 3335);
+      // var caress = new Caress();
       var client = dgram.createSocket("udp4");
       var message = new Buffer('2362756e646c650000000000000000010000001c2f7475696f2f3244637572002c736900616c69766500000000000004000000342f7475696f2f3244637572002c736966666666660000000073657400000000043f115e5e3f68fc970000000000000000000000000000001c2f7475696f2f3244637572002c7369006673657100000000000000ff', 'hex');
       var expected = {
@@ -62,7 +80,9 @@ describe("Caress Server", function () {
       });
 
       // VERIFY
+      console.log('Caress', caress);
       caress.on('tuio', function(msg){
+        console.log(msg);
         expect(msg).to.deep.equal(expected);
         done();
       });
@@ -72,7 +92,7 @@ describe("Caress Server", function () {
 
     it("Should emit a 'tuio' event when TCP 'data' is received", function (done) {
       // SETUP
-      var caress = new Caress('0.0.0.0', 3336);
+      // var caress = new Caress('0.0.0.0', 3336);
       var message = new Buffer('000000bc2362756e646c65000000000000000001000000302f7475696f2f3244637572002c737300736f7572636500005475696f506164403139322e3136382e312e3638000000000000001c2f7475696f2f3244637572002c736900616c69766500000000000000000000342f7475696f2f3244637572002c736966666666660000000073657400000000003ee222223f06cccd000000003e480031bf50559e0000001c2f7475696f2f3244637572002c736900667365710000000000000091', 'hex');
       var expected = {
         bundle: true,
