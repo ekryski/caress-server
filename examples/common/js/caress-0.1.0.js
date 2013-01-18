@@ -1,6 +1,6 @@
-/*! caress-client - v0.1.0 - 2012-10-17
+/*! caress-client - v0.1.0 - 2012-11-01
 * https://github.com/ekryski/caress-client
-* Copyright (c) 2012 Eric Kryski; Licensed  */
+* Copyright (c) 2012 Eric Kryski; Licensed MIT */
 
 (function(namespace) {
 
@@ -84,7 +84,8 @@
       this.touchList = document.createTouchList();
 
       // _.bindAll(this, 'connect', 'onConnect', 'onDisconnect', 'processPacket', 'processMessage', 'process2dCursorMessage', 'source2dCursor', 'alive2dCursor', 'set2dCursor');
-      _.bindAll(this, 'connect', 'onConnect', 'onDisconnect', 'processPacket', 'processMessage', 'processSource', 'processAlive', 'processSet', 'processFseq');
+      _.bindAll(this, 'connect', 'onConnect', 'onDisconnect', 'processPacket', 'processMessage', 'processCursorSource', 'processObjectSource', 'processBlobSource',
+        'processCursorAlive', 'processObjectAlive', 'processBlobAlive', 'processCursorSet', 'processObjectSet', 'processBlobSet', 'processFseq');
     };
 
     Client.prototype.connect = function(){
@@ -103,6 +104,24 @@
 
     Client.prototype.onDisconnect = function(){
       this.connected = false;
+
+      // We disconnected from the server so we emit touch cancel
+      // events for each touch point still remaining.
+      for (var namespace in this.touches) {
+        for (var touch in this.touches[namespace]) {
+          var cancelledTouch = this.touches[namespace][touch];
+          delete this.touches[namespace][touch];
+
+          this.createTouchEvent('touchcancel', cancelledTouch);
+        }
+      }
+
+      // Clean up all the TUIO and touch lists
+      this.touches = {};
+      this.cursors = {};
+      this.objects = {};
+      this.blobs = {};
+
       // this.trigger("disconnect");
       console.log('Disconnected from Socket.io');
     };
@@ -118,22 +137,24 @@
     };
 
     Client.prototype.processMessage = function(packet){
-      var profiles = {
-        // '/tuio/2Dobj': this.process2dObjectMessage,
-        '/tuio/2Dcur': this.process2dCursorMessage
-        // '/tuio/2Dblb': this.process2dBlobMessage
-        // '/tuio/25Dobj': this.process25dObjectMessage(message),
-        // '/tuio/25Dcur': this.process25dCursorMessage(message),
-        // '/tuio/25Dblb': this.process25dBlobMessage(message),
-        // '/tuio/3Dobj': this.process3dObjectMessage(message),
-        // '/tuio/3Dcur': this.process3dCursorMessage(message),
-        // '/tuio/3Dblb': this.process3dBlobMessage(message)
+      var cursorTypes = {
+        'source': this.processCursorSource,
+        'alive': this.processCursorAlive,
+        'set': this.processCursorSet,
+        'fseq': this.processFseq
       };
 
-      var types = {
-        'source': this.processSource,
-        'alive': this.processAlive,
-        'set': this.processSet,
+      var objectTypes = {
+        'source': this.processObjectSource,
+        'alive': this.processObjectAlive,
+        'set': this.processObjectSet,
+        'fseq': this.processFseq
+      };
+
+      var blobTypes = {
+        'source': this.processBlobSource,
+        'alive': this.processBlobAlive,
+        'set': this.processBlobSet,
         'fseq': this.processFseq
       };
 
@@ -142,20 +163,37 @@
       // Ignore duplicate packets for now
       if (!packet.duplicate){
 
-        // Default all the sources to localhost in assuming that if
+        // Default all the sources to localhost, assuming that if
         // we don't have an address then it is from localhost. Maybe
-        // this is a bad assumption to make. We also override this if
-        // a source was actually provided
+        // this is a bad assumption to make. We override this if
+        // a source was actually provided!
         packet.source = 'localhost';
 
         for (var message in packet.messages) {
           var key = packet.messages[message].type;
-          types[key](packet, packet.messages[message]);
+
+          switch (packet.messages[message].profile) {
+              case "/tuio/2Dcur":
+              case "/tuio/25Dcur":
+              case "/tuio/3Dcur":
+                cursorTypes[key](packet, packet.messages[message]);
+                break;
+              case "/tuio/2Dobj":
+              case "/tuio/25Dobj":
+              case "/tuio/3Dobj":
+                objectTypes[key](packet, packet.messages[message]);
+                break;
+              case "/tuio/2Dblb":
+              case "/tuio/25Dblb":
+              case "/tuio/3Dblb":
+                blobTypes[key](packet, packet.messages[message]);
+                break;
+          }
         }
       }
     };
 
-    Client.prototype.processSource = function(packet, message){
+    Client.prototype.processCursorSource = function(packet, message){
       packet.source = message.address;
       if (this.cursors[packet.source] === undefined){
         this.cursors[packet.source] = {};
@@ -166,7 +204,29 @@
       }
     };
 
-    Client.prototype.processAlive = function(packet, message){
+    Client.prototype.processObjectSource = function(packet, message){
+      packet.source = message.address;
+      if (this.objects[packet.source] === undefined){
+        this.objects[packet.source] = {};
+      }
+
+      if (this.touches[packet.source] === undefined){
+        this.touches[packet.source] = {};
+      }
+    };
+
+    Client.prototype.processBlobSource = function(packet, message){
+      packet.source = message.address;
+      if (this.blobs[packet.source] === undefined){
+        this.blobs[packet.source] = {};
+      }
+
+      if (this.touches[packet.source] === undefined){
+        this.touches[packet.source] = {};
+      }
+    };
+
+    Client.prototype.processCursorAlive = function(packet, message){
       // Setup multiplexing namespacing if it doesn't already exist.
       // Also needs to be done in here because sometimes you don't get source
       // messages.
@@ -187,28 +247,82 @@
         var touch = this.touches[packet.source][key];
 
         if (touch !== undefined){
+          delete this.touches[packet.source][key];
+          delete this.cursors[packet.source][key];
           this.createTouchEvent('touchend', touch);
         }
-
-        delete this.touches[packet.source][key];
-        delete this.cursors[packet.source][key];
       }
     };
 
-    Client.prototype.processSet = function(packet, message){
-      var cursor;
-      var touch;
+    Client.prototype.processObjectAlive = function(packet, message){
+      // Setup multiplexing namespacing if it doesn't already exist.
+      // Also needs to be done in here because sometimes you don't get source
+      // messages.
+      if (this.objects[packet.source] === undefined){
+        this.objects[packet.source] = {};
+      }
+
+      if (this.touches[packet.source] === undefined){
+        this.touches[packet.source] = {};
+      }
+
+      // Remove the non-active objects from the object namespace
+      var activeObjects = _.map(message.sessionIds, function(id){ return id.toString(); });
+      var notActiveObjects = _.difference(_.keys(this.objects[packet.source]), activeObjects);
+
+      for (var i = 0; i < notActiveObjects.length; i++){
+        var key = notActiveObjects[i];
+        var touch = this.touches[packet.source][key];
+
+        if (touch !== undefined){
+          delete this.touches[packet.source][key];
+          delete this.objects[packet.source][key];
+          this.createTouchEvent('touchend', touch);
+        }
+      }
+    };
+
+    Client.prototype.processBlobAlive = function(packet, message){
+      // Setup multiplexing namespacing if it doesn't already exist.
+      // Also needs to be done in here because sometimes you don't get source
+      // messages.
+      if (this.blobs[packet.source] === undefined){
+        this.blobs[packet.source] = {};
+      }
+
+      if (this.touches[packet.source] === undefined){
+        this.touches[packet.source] = {};
+      }
+
+      // Remove the non-active blobs from the blob namespace
+      var activeBlobs = _.map(message.sessionIds, function(id){ return id.toString(); });
+      var notActiveBlobs = _.difference(_.keys(this.blobs[packet.source]), activeBlobs);
+
+      for (var i = 0; i < notActiveBlobs.length; i++){
+        var key = notActiveBlobs[i];
+        var touch = this.touches[packet.source][key];
+
+        if (touch !== undefined){
+          delete this.touches[packet.source][key];
+          delete this.blobs[packet.source][key];
+          this.createTouchEvent('touchend', touch);
+        }
+      }
+    };
+
+    Client.prototype.processCursorSet = function(packet, message){
+      var cursor = new TuioCursor(message);
+      var touch = cursor.coherceToTouch();
       var id = message.sessionId.toString();
 
       if (this.cursors[packet.source][id] !== undefined && this.cursors[packet.source][id].sessionId.toString() === id){
 
         // Existing cursor so we update it
-        this.cursors[packet.source][id] = new TuioCursor(message);
+        this.cursors[packet.source][id] = cursor;
 
         // Find existing touch in touches hash, replace it with the
         // updated touch and then create a 'touchmove' event
         if (this.touches[packet.source][id] !== undefined && this.touches[packet.source][id].identifier.toString() === id){
-          touch = this.cursors[packet.source][id].coherceToTouch();
           this.touches[packet.source][id] = touch;
           this.createTouchEvent('touchmove', touch);
           // console.log('UPDATE', this.cursors, this.touches);
@@ -222,14 +336,85 @@
       }
 
       // New cursor
-      cursor = new TuioCursor(message);
-      touch = cursor.coherceToTouch();
-
       this.cursors[packet.source][id] = cursor;
       this.touches[packet.source][id] = touch;
 
       this.createTouchEvent('touchstart', touch);
       // console.log('SET', this.cursors[packet.source], this.touches[packet.source]);
+    };
+
+    Client.prototype.processObjectSet = function(packet, message){
+      var tuioObject;
+      var touch;
+      var id = message.sessionId.toString();
+
+      if (this.objects[packet.source][id] !== undefined && this.objects[packet.source][id].sessionId.toString() === id){
+
+        // Existing object so we update it
+        this.objects[packet.source][id] = new TuioObject(message);
+
+        // Find existing touch in touches hash, replace it with the
+        // updated touch and then create a 'touchmove' event
+        if (this.touches[packet.source][id] !== undefined && this.touches[packet.source][id].identifier.toString() === id){
+          touch = this.objects[packet.source][id].coherceToTouch();
+          this.touches[packet.source][id] = touch;
+          this.createTouchEvent('touchmove', touch);
+          // console.log('UPDATE', this.objects, this.touches);
+
+          return;
+        }
+
+        // Shouldn't really get here unless somebody removed the touch from
+        // the touches hash without removing the object from objects as well.
+        return;
+      }
+
+      // New TUIO object
+      tuioObject = new TuioObject(message);
+      touch = tuioObject.coherceToTouch();
+
+      this.objects[packet.source][id] = tuioObject;
+      this.touches[packet.source][id] = touch;
+
+      this.createTouchEvent('touchstart', touch);
+      // console.log('SET', this.objects[packet.source], this.touches[packet.source]);
+    };
+
+    Client.prototype.processBlobSet = function(packet, message){
+      var blob;
+      var touch;
+      var id = message.sessionId.toString();
+
+      if (this.blobs[packet.source][id] !== undefined && this.blobs[packet.source][id].sessionId.toString() === id){
+
+        // Existing blob so we update it
+        this.blobs[packet.source][id] = new TuioBlob(message);
+
+        // Find existing touch in touches hash, replace it with the
+        // updated touch and then create a 'touchmove' event
+        if (this.touches[packet.source][id] !== undefined && this.touches[packet.source][id].identifier.toString() === id){
+          touch = this.blobs[packet.source][id].coherceToTouch();
+          this.touches[packet.source][id] = touch;
+          this.createTouchEvent('touchmove', touch);
+          // console.log('UPDATE', this.blobs, this.touches);
+
+          return;
+        }
+
+        // Shouldn't really get here unless somebody removed the touch from
+        // the touches hash without removing the blob from blobs as well.
+        return;
+      }
+
+      // New blob
+      blob = new TuioBlob(message);
+      touch = blob.coherceToTouch();
+
+      this.blobs[packet.source][id] = blob;
+      this.touches[packet.source][id] = touch;
+
+      this.createTouchEvent('touchstart', touch);
+      // console.log('SET', this.blobs[packet.source], this.touches[packet.source]);
     };
 
     Client.prototype.processFseq = function(packet, message){
@@ -288,7 +473,25 @@
       // because almost all browsers except for Firefox at the moment
       // do not support it.
       var touchEvent = document.createEvent('UIEvent');
-      touchEvent.initUIEvent(type || "", true, true, touch.view || null, 0);
+
+      switch(type){
+        // Init as canBubble and is cancelable
+        case 'touchstart':
+        case 'touchend':
+        case 'touchmove':
+          touchEvent.initUIEvent(type || "", true, true, touch.view || null, 0);
+          break;
+        // Init as not cancelable
+        case 'touchcancel':
+          touchEvent.initUIEvent(type || "", true, false, touch.view || null, 0);
+          break;
+        // Init as cannot bubble
+        case 'touchenter':
+        case 'touchleave':
+          touchEvent.initUIEvent(type || "", false, true, touch.view || null, 0);
+          break;
+      }
+
       touchEvent.initTouchEvent(touches, targetTouches, changedTouches, type, window, touch.screenX, touch.screenY, touch.clientX, touch.clientY, touchEvent.ctrlKey, touchEvent.altKey, touchEvent.shiftKey, touchEvent.metaKey);
 
       // Dispatch the event
@@ -331,15 +534,56 @@
     /**
      * A TUIO Object Object (an Object Object? whaaat?)
      */
-    var TuioObject = Caress.TuioObject = {
+    var TuioObject = Caress.TuioObject = function TuioObject(options){
+      for (var key in options){
+        this[key] = options[key];
+      }
+    };
 
+    TuioObject.prototype.coherceToTouch = function() {
+      var identifier = this.sessionId;
+
+      var clientX = window.innerWidth * this.xPosition;
+      var clientY = window.innerHeight * this.yPosition;
+      var pageX = document.documentElement.clientWidth * this.xPosition;
+      var pageY = document.documentElement.clientHeight * this.yPosition;
+      var target = document.elementFromPoint(pageX, pageY);
+      var screenX = screen.width * this.xPosition;
+      var screenY = screen.height * this.yPosition;
+      var radiusX = this.radius;
+      var radiusY = this.radius;
+      var rotationAngle = this.rotationAngle;
+      var force = this.force;
+
+      return document.createTouch(target, identifier, clientX, clientY, pageX, pageY, screenX, screenY, radiusX, radiusY, rotationAngle, force);
     };
 
     /**
      * A TUIO Blob Object
      */
-    var TuioBlob = Caress.TuioBlob = {
+    var TuioBlob = Caress.TuioBlob = function TuioBlob(options){
+      for (var key in options){
+        this[key] = options[key];
+      }
+    };
 
+    TuioBlob.prototype.coherceToTouch = function() {
+      var identifier = this.sessionId;
+
+      //TODO: Verify? I think these are correct but not 100% sure
+      var clientX = window.innerWidth * this.xPosition;
+      var clientY = window.innerHeight * this.yPosition;
+      var pageX = document.documentElement.clientWidth * this.xPosition;
+      var pageY = document.documentElement.clientHeight * this.yPosition;
+      var target = document.elementFromPoint(pageX, pageY);
+      var screenX = screen.width * this.xPosition;
+      var screenY = screen.height * this.yPosition;
+      var radiusX = this.radius;
+      var radiusY = this.radius;
+      var rotationAngle = this.rotationAngle;
+      var force = this.force;
+
+      return document.createTouch(target, identifier, clientX, clientY, pageX, pageY, screenX, screenY, radiusX, radiusY, rotationAngle, force);
     };
 
     /**
