@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "jspack": "0.0.1",
-    "buffertools": ">=1.1.0"
+    "buffertools": ">=2.0.0"
   },
   "devDependencies": {
     "mocha": "*",
