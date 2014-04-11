@@ -1,5 +1,7 @@
 # Caress Server#
 
+[![Build Status](https://travis-ci.org/ekryski/caress-server.svg?branch=master)](https://travis-ci.org/ekryski/caress-server)
+
 *Caress Server* is a NodeJS + Socket.io backed Javascript implementation of the [TUIO protocol](http://www.tuio.org) bringing true cross platform TUIO support. Used in conjunction with the the [Caress Client](https://github.com/ekryski/caress-client/) you now get true cross browser multi-touch support and tactile interaction in the web browser.
 
 ### Background ###
