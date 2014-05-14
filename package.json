@@ -1,7 +1,7 @@
 {
   "name": "caress-server",
   "description": "caress-server is a NodeJS server that coverts TUIO data to events and emits those events",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "homepage": "https://github.com/ekryski/caress-server",
   "author": {
     "name": "Eric Kryski",
